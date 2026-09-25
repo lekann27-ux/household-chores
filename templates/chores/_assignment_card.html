@@ -1,0 +1,21 @@
+<article style="border:1px solid var(--border-color); border-radius:var(--radius-md); padding:1rem; margin:.75rem 0; background:var(--bg-surface);">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap;">
+        <div>
+            <h3 style="font-size:1.05rem; font-weight:700;">{{ assignment.chore.title }}</h3>
+            <p style="color:var(--text-secondary); margin-top:.25rem;">{{ assignment.chore.household.name }} · Due {{ assignment.due_date|date:"M j, Y" }}</p>
+        </div>
+        {% if assignment.display_status == 'OVERDUE' %}
+            <span class="status-badge" style="background:var(--bg-danger); color:var(--text-danger); border:1px solid var(--border-danger);">Overdue</span>
+        {% elif assignment.display_status == 'COMPLETED' %}
+            <span class="status-badge badge-success">Completed</span>
+        {% else %}
+            <span class="status-badge badge-info">Pending</span>
+        {% endif %}
+    </div>
+    {% if assignment.can_complete %}
+        <form method="post" action="{% url 'complete_assignment' assignment.id %}" style="margin-top:.75rem;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary">Mark Complete</button>
+        </form>
+    {% endif %}
+</article>

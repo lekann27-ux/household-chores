@@ -3,13 +3,28 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, LogoutView
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
+from django.db.models import Prefetch
 from django.http import HttpResponseForbidden, HttpResponseNotAllowed
+from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
 
-from .forms import ChoreForm, HouseholdCreationForm, HouseholdJoinForm, LoginForm, RegisterForm
-from .models import Chore, ChoreAssignment, Household, HouseholdMembership
+from .forms import (
+    AssignmentHistoryFilterForm,
+    ChoreForm,
+    HouseholdCreationForm,
+    HouseholdJoinForm,
+    LoginForm,
+    RegisterForm,
+)
+from .models import (
+    Chore,
+    ChoreAssignment,
+    ChoreRotationMember,
+    Household,
+    HouseholdMembership,
+)
 from .services.assignments import complete_assignment
 from .services.members import remove_member_from_household
 from .services.rotation import (
@@ -72,8 +87,125 @@ class CustomLogoutView(LogoutView):
 
 @login_required
 def protected_dashboard_view(request):
-    """Protected view placeholder for chore dashboard to verify auth redirection."""
-    return render(request, 'home.html', {'is_dashboard': True})
+    """Show the current user's assignments and each household's active chores."""
+    memberships = list(
+        request.user.household_memberships.select_related('household').order_by('pk')
+    )
+    membership_ids = [membership.pk for membership in memberships]
+    household_ids = [membership.household_id for membership in memberships]
+    today = timezone.localdate()
+
+    active_assignments = list(
+        ChoreAssignment.objects.filter(
+            chore__household_id__in=household_ids,
+            status__in=(ChoreAssignment.Status.PENDING, ChoreAssignment.Status.OVERDUE),
+        )
+        .select_related('chore__household', 'assigned_to__user')
+        .order_by('due_date', 'chore__title', 'pk')
+    )
+    for assignment in active_assignments:
+        assignment.display_status = assignment.status
+        if (
+            assignment.status == ChoreAssignment.Status.PENDING
+            and assignment.due_date < today
+        ):
+            # Show overdue urgency immediately; the scheduled scanner persists
+            # this state without changing the assignee or advancing rotation.
+            assignment.display_status = ChoreAssignment.Status.OVERDUE
+        assignment.can_complete = (
+            assignment.assigned_to.user_id == request.user.pk
+            or assignment.chore.household.admin_id == request.user.pk
+        )
+
+    my_assignments = [
+        assignment for assignment in active_assignments
+        if assignment.assigned_to_id in membership_ids
+        and assignment.assigned_to.user_id == request.user.pk
+    ]
+    my_overdue = [
+        assignment for assignment in my_assignments
+        if assignment.display_status == ChoreAssignment.Status.OVERDUE
+    ]
+    my_due_today = [
+        assignment for assignment in my_assignments
+        if assignment.display_status == ChoreAssignment.Status.PENDING
+        and assignment.due_date == today
+    ]
+    my_upcoming = [
+        assignment for assignment in my_assignments
+        if assignment.display_status == ChoreAssignment.Status.PENDING
+        and assignment.due_date > today
+    ]
+
+    current_assignment_queryset = (
+        ChoreAssignment.objects.filter(
+            status__in=(ChoreAssignment.Status.PENDING, ChoreAssignment.Status.OVERDUE),
+        )
+        .select_related('assigned_to__user')
+        .order_by('due_date', 'pk')
+    )
+    rotation_queryset = ChoreRotationMember.objects.select_related('membership__user').order_by(
+        'sequence_order', 'pk',
+    )
+    household_chores = list(
+        Chore.objects.filter(household_id__in=household_ids, is_active=True)
+        .select_related('household')
+        .prefetch_related(
+            Prefetch('assignments', queryset=current_assignment_queryset, to_attr='active_assignments'),
+            Prefetch('rotation_members', queryset=rotation_queryset, to_attr='ordered_rotation'),
+        )
+        .order_by('household__name', 'title', 'pk')
+    )
+
+    upcoming_rotations = []
+    for chore in household_chores:
+        chore.current_assignment = chore.active_assignments[0] if chore.active_assignments else None
+        if chore.current_assignment:
+            chore.current_assignment.display_status = chore.current_assignment.status
+            if (
+                chore.current_assignment.status == ChoreAssignment.Status.PENDING
+                and chore.current_assignment.due_date < today
+            ):
+                chore.current_assignment.display_status = ChoreAssignment.Status.OVERDUE
+            current_index = next(
+                (
+                    index for index, rotation in enumerate(chore.ordered_rotation)
+                    if rotation.membership_id == chore.current_assignment.assigned_to_id
+                ),
+                None,
+            )
+            if current_index is None or not chore.ordered_rotation:
+                chore.next_member = None
+            else:
+                next_rotation = chore.ordered_rotation[
+                    (current_index + 1) % len(chore.ordered_rotation)
+                ]
+                chore.next_member = next_rotation.membership
+            upcoming_rotations.append(chore)
+        else:
+            chore.next_member = None
+
+    recent_completed = list(
+        ChoreAssignment.objects.filter(
+            chore__household_id__in=household_ids,
+            status=ChoreAssignment.Status.COMPLETED,
+        )
+        .select_related('chore__household', 'assigned_to__user', 'completed_by__user')
+        .order_by('-completed_at', '-pk')[:5]
+    )
+    for assignment in recent_completed:
+        assignment.display_status = ChoreAssignment.Status.COMPLETED
+
+    return render(request, 'chores/dashboard.html', {
+        'households': [membership.household for membership in memberships],
+        'my_overdue': my_overdue,
+        'my_due_today': my_due_today,
+        'my_upcoming': my_upcoming,
+        'all_household_chores': household_chores,
+        'upcoming_rotations': upcoming_rotations,
+        'recent_completed': recent_completed,
+        'today': today,
+    })
 
 
 @login_required
@@ -327,3 +459,51 @@ def complete_assignment_view(request, assignment_id):
 
     messages.success(request, f'"{assignment.chore.title}" was marked complete.')
     return redirect('chore_list')
+
+
+@login_required
+def chore_history_view(request):
+    """Browse completed assignments limited to the user's household memberships."""
+    memberships = request.user.household_memberships.select_related('household', 'user')
+    household_ids = list(memberships.values_list('household_id', flat=True))
+    chores = Chore.objects.filter(household_id__in=household_ids).order_by('title', 'pk')
+    household_members = HouseholdMembership.objects.filter(
+        household_id__in=household_ids,
+    ).select_related('household', 'user').order_by('household__name', 'user__username', 'pk')
+    form = AssignmentHistoryFilterForm(
+        request.GET or None,
+        chores=chores,
+        memberships=household_members,
+    )
+
+    assignments = ChoreAssignment.objects.filter(
+        chore__household_id__in=household_ids,
+        status=ChoreAssignment.Status.COMPLETED,
+    ).select_related(
+        'chore__household', 'assigned_to__user', 'completed_by__user',
+    ).order_by('-completed_at', '-pk')
+
+    if form.is_valid():
+        chore = form.cleaned_data.get('chore')
+        member = form.cleaned_data.get('member')
+        date_from = form.cleaned_data.get('date_from')
+        date_to = form.cleaned_data.get('date_to')
+        if chore:
+            assignments = assignments.filter(chore=chore)
+        if member:
+            assignments = assignments.filter(completed_by=member)
+        if date_from:
+            assignments = assignments.filter(completed_at__date__gte=date_from)
+        if date_to:
+            assignments = assignments.filter(completed_at__date__lte=date_to)
+
+    paginator = Paginator(assignments, 25)
+    history_page = paginator.get_page(request.GET.get('page'))
+    query_params = request.GET.copy()
+    query_params.pop('page', None)
+
+    return render(request, 'chores/history.html', {
+        'form': form,
+        'history_page': history_page,
+        'querystring': query_params.urlencode(),
+    })

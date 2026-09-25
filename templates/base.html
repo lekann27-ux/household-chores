@@ -57,6 +57,9 @@
                             <a href="{% url 'dashboard' %}" class="nav-link" id="nav-dashboard">Dashboard</a>
                         </li>
                         <li>
+                            <a href="{% url 'chore_history' %}" class="nav-link" id="nav-history">History</a>
+                        </li>
+                        <li>
                             <div class="user-badge" id="nav-user-badge" title="{{ user.email }}">
                                 <span class="user-avatar">{{ user.username|make_list|first|upper }}</span>
                                 <span>{{ user.username }}</span>

@@ -276,6 +276,5 @@ class AuthenticationTests(TestCase):
         self.client.login(username='testuser', password='SecurePassword123!')
         response = self.client.get(reverse('dashboard'))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'home.html')
-        self.assertTrue(response.context.get('is_dashboard'))
-
+        self.assertTemplateUsed(response, 'chores/dashboard.html')
+        self.assertContains(response, 'Chore Dashboard')

@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard | Household Chores{% endblock %}
+
+{% block content %}
+<section class="dashboard-overview-card">
+    <div class="overview-header">
+        <div>
+            <h1 class="overview-title">Chore Dashboard</h1>
+            {% if households %}
+                <p style="color:var(--text-secondary);">Your household assignments and rotation schedule.</p>
+            {% else %}
+                <p style="color:var(--text-secondary);">Join or create a household to see chore assignments.</p>
+            {% endif %}
+        </div>
+        <a class="btn btn-secondary" href="{% url 'chore_history' %}">Completed History</a>
+    </div>
+
+    {% if not households %}
+        <div class="alert alert-info" id="dashboard-no-household">
+            <p>You are not a member of a household yet.</p>
+            <p style="margin-top:.75rem;"><a href="{% url 'household_create' %}">Create a household</a> or <a href="{% url 'household_join' %}">join with a code</a>.</p>
+        </div>
+    {% endif %}
+
+    <section aria-labelledby="my-chores-heading" style="margin-bottom:2rem;">
+        <h2 id="my-chores-heading" style="font-size:1.25rem; font-weight:700;">My Chores</h2>
+        {% if my_overdue %}
+            <h3 style="margin-top:1rem; color:var(--text-danger);">Overdue</h3>
+            {% for assignment in my_overdue %}{% include 'chores/_assignment_card.html' %}{% endfor %}
+        {% endif %}
+        {% if my_due_today %}
+            <h3 style="margin-top:1rem;">Due Today</h3>
+            {% for assignment in my_due_today %}{% include 'chores/_assignment_card.html' %}{% endfor %}
+        {% endif %}
+        {% if my_upcoming %}
+            <h3 style="margin-top:1rem;">Upcoming</h3>
+            {% for assignment in my_upcoming %}{% include 'chores/_assignment_card.html' %}{% endfor %}
+        {% endif %}
+        {% if not my_overdue and not my_due_today and not my_upcoming %}
+            <p class="alert alert-info" id="empty-my-chores" style="margin-top:.75rem;">You have no pending chores assigned to you.</p>
+        {% endif %}
+    </section>
+
+    <section aria-labelledby="all-chores-heading" style="margin-bottom:2rem;">
+        <h2 id="all-chores-heading" style="font-size:1.25rem; font-weight:700;">All Household Chores</h2>
+        {% if all_household_chores %}
+            <div style="overflow-x:auto; margin-top:.75rem; border:1px solid var(--border-color); border-radius:var(--radius-md);">
+                <table style="width:100%; border-collapse:collapse; text-align:left; font-size:.925rem;">
+                    <thead><tr style="background:var(--bg-subtle); border-bottom:1px solid var(--border-color);">
+                        <th style="padding:.85rem 1rem;">Household</th><th style="padding:.85rem 1rem;">Chore</th><th style="padding:.85rem 1rem;">Current Assignee</th><th style="padding:.85rem 1rem;">Due</th><th style="padding:.85rem 1rem;">Status</th><th style="padding:.85rem 1rem;">Action</th>
+                    </tr></thead>
+                    <tbody>
+                        {% for chore in all_household_chores %}
+                            <tr style="border-bottom:1px solid var(--border-color);">
+                                <td style="padding:1rem;">{{ chore.household.name }}</td>
+                                <td style="padding:1rem;">{{ chore.title }}</td>
+                                {% if chore.current_assignment %}
+                                    <td style="padding:1rem;">{{ chore.current_assignment.assigned_to.user.username }}</td>
+                                    <td style="padding:1rem;">{{ chore.current_assignment.due_date|date:"M j, Y" }}</td>
+                                    <td style="padding:1rem;">
+                                        {% if chore.current_assignment.display_status == 'OVERDUE' %}<span class="status-badge" style="background:var(--bg-danger); color:var(--text-danger); border:1px solid var(--border-danger);">Overdue</span>
+                                        {% else %}<span class="status-badge badge-info">Pending</span>{% endif %}
+                                    </td>
+                                    <td style="padding:1rem;">
+                                        {% if chore.current_assignment.assigned_to.user_id == user.id or chore.household.admin_id == user.id %}
+                                            <form method="post" action="{% url 'complete_assignment' chore.current_assignment.id %}">
+                                                {% csrf_token %}<button type="submit" class="btn btn-primary">Mark Complete</button>
+                                            </form>
+                                        {% else %}—{% endif %}
+                                    </td>
+                                {% else %}
+                                    <td colspan="4" style="padding:1rem; color:var(--text-secondary);">No assignment scheduled</td>
+                                {% endif %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="alert alert-info" id="empty-household-chores" style="margin-top:.75rem;">There are no active chores in your household(s).</p>
+        {% endif %}
+    </section>
+
+    <section aria-labelledby="upcoming-rotations-heading" style="margin-bottom:2rem;">
+        <h2 id="upcoming-rotations-heading" style="font-size:1.25rem; font-weight:700;">Upcoming Rotations</h2>
+        {% if upcoming_rotations %}
+            <div style="overflow-x:auto; margin-top:.75rem; border:1px solid var(--border-color); border-radius:var(--radius-md);">
+                <table style="width:100%; border-collapse:collapse; text-align:left; font-size:.925rem;">
+                    <thead><tr style="background:var(--bg-subtle); border-bottom:1px solid var(--border-color);"><th style="padding:.85rem 1rem;">Chore</th><th style="padding:.85rem 1rem;">Current Turn Due</th><th style="padding:.85rem 1rem;">Current Assignee</th><th style="padding:.85rem 1rem;">Next in Rotation</th></tr></thead>
+                    <tbody>
+                        {% for chore in upcoming_rotations %}
+                            <tr style="border-bottom:1px solid var(--border-color);">
+                                <td style="padding:1rem;">{{ chore.title }}</td>
+                                <td style="padding:1rem;">{{ chore.current_assignment.due_date|date:"M j, Y" }}</td>
+                                <td style="padding:1rem;">{{ chore.current_assignment.assigned_to.user.username }}</td>
+                                <td style="padding:1rem;">{% if chore.next_member %}{{ chore.next_member.user.username }}{% else %}No rotation member{% endif %}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="alert alert-info" id="empty-upcoming-rotations" style="margin-top:.75rem;">No upcoming rotations are scheduled.</p>
+        {% endif %}
+    </section>
+
+    <section aria-labelledby="recently-completed-heading">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
+            <h2 id="recently-completed-heading" style="font-size:1.25rem; font-weight:700;">Recently Completed</h2>
+            <a href="{% url 'chore_history' %}">View full history</a>
+        </div>
+        {% if recent_completed %}
+            {% for assignment in recent_completed %}
+                <article style="border:1px solid var(--border-color); border-radius:var(--radius-md); padding:1rem; margin:.75rem 0;">
+                    <div style="display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+                        <div><strong>{{ assignment.chore.title }}</strong><div style="color:var(--text-secondary); margin-top:.25rem;">{{ assignment.chore.household.name }} · Completed by {% if assignment.completed_by %}{{ assignment.completed_by.user.username }}{% else %}Unknown member{% endif %} · {{ assignment.completed_at|date:"M j, Y, P"|default:"Completion time unavailable" }}</div></div>
+                        <span class="status-badge badge-success">Completed</span>
+                    </div>
+                </article>
+            {% endfor %}
+        {% else %}
+            <p class="alert alert-info" id="empty-recent-completed" style="margin-top:.75rem;">No chores have been completed yet.</p>
+        {% endif %}
+    </section>
+</section>
+{% endblock %}

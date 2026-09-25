@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth.models import User
 
-from .models import Chore, Household
+from .models import Chore, Household, HouseholdMembership
 
 
 class RegisterForm(UserCreationForm):
@@ -147,3 +147,47 @@ class ChoreForm(forms.ModelForm):
         if interval < 1:
             raise forms.ValidationError('The interval must be at least 1.')
         return interval
+
+
+class AssignmentHistoryFilterForm(forms.Form):
+    chore = forms.ModelChoiceField(
+        queryset=Chore.objects.none(),
+        required=False,
+        empty_label='All chores',
+        widget=forms.Select(attrs={'class': 'form-input'}),
+    )
+    member = forms.ModelChoiceField(
+        queryset=HouseholdMembership.objects.none(),
+        required=False,
+        empty_label='All members',
+        widget=forms.Select(attrs={'class': 'form-input'}),
+        label='Completed by',
+    )
+    date_from = forms.DateField(
+        required=False,
+        input_formats=['%Y-%m-%d'],
+        widget=forms.DateInput(attrs={'class': 'form-input', 'type': 'date'}),
+        label='Completed from',
+    )
+    date_to = forms.DateField(
+        required=False,
+        input_formats=['%Y-%m-%d'],
+        widget=forms.DateInput(attrs={'class': 'form-input', 'type': 'date'}),
+        label='Completed through',
+    )
+
+    def __init__(self, *args, chores=None, memberships=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['chore'].queryset = chores if chores is not None else Chore.objects.none()
+        self.fields['member'].queryset = (
+            memberships.select_related('user', 'household')
+            if memberships is not None else HouseholdMembership.objects.none()
+        )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        date_from = cleaned_data.get('date_from')
+        date_to = cleaned_data.get('date_to')
+        if date_from and date_to and date_from > date_to:
+            self.add_error('date_to', 'The end date must be on or after the start date.')
+        return cleaned_data

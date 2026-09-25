@@ -16,4 +16,5 @@ urlpatterns = [
     path('chores/<int:chore_id>/edit/', views.chore_update_view, name='chore_update'),
     path('chores/<int:chore_id>/delete/', views.chore_delete_view, name='chore_delete'),
     path('assignments/<int:assignment_id>/complete/', views.complete_assignment_view, name='complete_assignment'),
+    path('history/', views.chore_history_view, name='chore_history'),
 ]
