@@ -3,7 +3,13 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 
-from chores.models import Chore, ChoreRotationMember, Household, HouseholdMembership
+from chores.models import (
+    Chore,
+    ChoreAssignment,
+    ChoreRotationMember,
+    Household,
+    HouseholdMembership,
+)
 
 
 class ChoreModelTests(TestCase):
@@ -80,3 +86,19 @@ class ChoreModelTests(TestCase):
         chore.delete()
 
         self.assertFalse(ChoreRotationMember.objects.exists())
+
+    def test_assignment_rejects_member_from_another_household(self):
+        other_admin = User.objects.create_user(username='other-admin', password='pass')
+        other_household = Household.objects.create(name='Other Home', admin=other_admin)
+        other_membership = HouseholdMembership.objects.create(
+            user=other_admin, household=other_household, is_admin=True,
+        )
+        chore = Chore.objects.create(household=self.household, title='Sweep')
+        assignment = ChoreAssignment(
+            chore=chore,
+            assigned_to=other_membership,
+            due_date='2026-10-03',
+        )
+
+        with self.assertRaises(ValidationError):
+            assignment.full_clean()

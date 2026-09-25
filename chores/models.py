@@ -175,3 +175,56 @@ class ChoreRotationMember(models.Model):
 
     def __str__(self):
         return f'{self.chore}: {self.membership.user} ({self.sequence_order})'
+
+
+class ChoreAssignment(models.Model):
+    """A scheduled occurrence of a chore, assigned to a household member."""
+
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        COMPLETED = 'COMPLETED', 'Completed'
+        OVERDUE = 'OVERDUE', 'Overdue'
+
+    chore = models.ForeignKey(
+        Chore,
+        on_delete=models.CASCADE,
+        related_name='assignments',
+    )
+    assigned_to = models.ForeignKey(
+        HouseholdMembership,
+        on_delete=models.CASCADE,
+        related_name='chore_assignments',
+    )
+    due_date = models.DateField()
+    status = models.CharField(
+        max_length=12,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    completed_at = models.DateTimeField(null=True, blank=True)
+    completed_by = models.ForeignKey(
+        HouseholdMembership,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='completed_chore_assignments',
+    )
+
+    class Meta:
+        ordering = ['due_date', 'id']
+
+    def clean(self):
+        super().clean()
+        if self.chore_id and self.assigned_to_id:
+            if self.chore.household_id != self.assigned_to.household_id:
+                raise ValidationError({
+                    'assigned_to': 'The assignee must be a member of the chore household.'
+                })
+        if self.chore_id and self.completed_by_id:
+            if self.chore.household_id != self.completed_by.household_id:
+                raise ValidationError({
+                    'completed_by': 'The completing member must belong to the chore household.'
+                })
+
+    def __str__(self):
+        return f'{self.chore} for {self.assigned_to.user} on {self.due_date}'

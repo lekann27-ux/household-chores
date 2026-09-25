@@ -5,9 +5,14 @@ from django.db import transaction
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
+from django.utils import timezone
 
 from .forms import ChoreForm, HouseholdCreationForm, HouseholdJoinForm, LoginForm, RegisterForm
 from .models import Chore, Household, HouseholdMembership
+from .services.rotation import (
+    enroll_member_in_active_chore_rotations,
+    initialize_chore_rotation,
+)
 
 
 def home_view(request):
@@ -111,11 +116,12 @@ def household_join_view(request):
             join_code = form.cleaned_data['join_code']
             household = Household.objects.get(join_code=join_code)
             with transaction.atomic():
-                HouseholdMembership.objects.create(
+                membership = HouseholdMembership.objects.create(
                     user=request.user,
                     household=household,
                     is_admin=False
                 )
+                enroll_member_in_active_chore_rotations(membership)
             messages.success(
                 request,
                 f"Welcome to {household.name}! You have joined the household."
@@ -225,9 +231,11 @@ def chore_create_view(request):
     if request.method == 'POST':
         form = ChoreForm(request.POST)
         if form.is_valid():
-            chore = form.save(commit=False)
-            chore.household = membership.household
-            chore.save()
+            with transaction.atomic():
+                chore = form.save(commit=False)
+                chore.household = membership.household
+                chore.save()
+                initialize_chore_rotation(chore, timezone.localdate())
             messages.success(request, f'Chore "{chore.title}" was created.')
             return redirect('chore_list')
     else:

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Chore, ChoreRotationMember, Household, HouseholdMembership
+from .models import Chore, ChoreAssignment, ChoreRotationMember, Household, HouseholdMembership
 
 
 @admin.register(Household)
@@ -29,3 +29,10 @@ class ChoreRotationMemberAdmin(admin.ModelAdmin):
     list_display = ('chore', 'membership', 'sequence_order')
     list_filter = ('chore__household',)
     search_fields = ('chore__title', 'membership__user__username')
+
+
+@admin.register(ChoreAssignment)
+class ChoreAssignmentAdmin(admin.ModelAdmin):
+    list_display = ('chore', 'assigned_to', 'due_date', 'status')
+    list_filter = ('status', 'due_date', 'chore__household')
+    search_fields = ('chore__title', 'assigned_to__user__username')
