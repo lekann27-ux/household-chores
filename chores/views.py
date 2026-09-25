@@ -24,6 +24,7 @@ from .models import (
     ChoreRotationMember,
     Household,
     HouseholdMembership,
+    Notification,
 )
 from .services.assignments import complete_assignment
 from .services.members import remove_member_from_household
@@ -507,3 +508,34 @@ def chore_history_view(request):
         'history_page': history_page,
         'querystring': query_params.urlencode(),
     })
+
+
+@login_required
+def notification_list_view(request):
+    """Show only notifications for the signed-in user and current households."""
+    household_ids = request.user.household_memberships.values_list('household_id', flat=True)
+    notifications = Notification.objects.filter(
+        recipient=request.user,
+        household_id__in=household_ids,
+    ).select_related('household', 'assignment__chore').order_by('-created_at', '-pk')
+    page = Paginator(notifications, 25).get_page(request.GET.get('page'))
+    return render(request, 'chores/notifications.html', {'notification_page': page})
+
+
+@login_required
+def mark_notification_read_view(request, notification_id):
+    """Mark one of the current user's household notifications as read."""
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    household_ids = request.user.household_memberships.values_list('household_id', flat=True)
+    notification = get_object_or_404(
+        Notification,
+        pk=notification_id,
+        recipient=request.user,
+        household_id__in=household_ids,
+    )
+    if not notification.is_read:
+        notification.is_read = True
+        notification.save(update_fields=['is_read'])
+    return redirect('notification_list')

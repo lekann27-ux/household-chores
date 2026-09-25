@@ -228,3 +228,56 @@ class ChoreAssignment(models.Model):
 
     def __str__(self):
         return f'{self.chore} for {self.assigned_to.user} on {self.due_date}'
+
+
+class Notification(models.Model):
+    """A household-scoped in-app reminder or overdue alert for one user."""
+
+    class NotificationType(models.TextChoices):
+        REMINDER = 'REMINDER', 'Due reminder'
+        OVERDUE = 'OVERDUE', 'Overdue alert'
+
+    recipient = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='chore_notifications',
+    )
+    household = models.ForeignKey(
+        Household,
+        on_delete=models.CASCADE,
+        related_name='notifications',
+    )
+    assignment = models.ForeignKey(
+        ChoreAssignment,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='notifications',
+    )
+    notification_type = models.CharField(max_length=12, choices=NotificationType.choices)
+    message = models.CharField(max_length=255)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-pk']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['recipient', 'assignment', 'notification_type'],
+                name='unique_recipient_assignment_notification',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['recipient', 'is_read']),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.assignment_id and self.household_id:
+            if self.assignment.chore.household_id != self.household_id:
+                raise ValidationError({
+                    'assignment': 'The assignment must belong to the notification household.'
+                })
+
+    def __str__(self):
+        return f'{self.get_notification_type_display()} for {self.recipient}'

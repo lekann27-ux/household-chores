@@ -60,6 +60,11 @@
                             <a href="{% url 'chore_history' %}" class="nav-link" id="nav-history">History</a>
                         </li>
                         <li>
+                            <a href="{% url 'notification_list' %}" class="nav-link" id="nav-notifications" aria-label="Notifications{% if unread_notification_count %}, {{ unread_notification_count }} unread{% endif %}">
+                                Notifications{% if unread_notification_count %} <span class="status-badge badge-info" id="unread-notification-count">{{ unread_notification_count }}</span>{% endif %}
+                            </a>
+                        </li>
+                        <li>
                             <div class="user-badge" id="nav-user-badge" title="{{ user.email }}">
                                 <span class="user-avatar">{{ user.username|make_list|first|upper }}</span>
                                 <span>{{ user.username }}</span>

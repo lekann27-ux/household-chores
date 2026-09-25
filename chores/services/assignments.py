@@ -7,6 +7,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from chores.models import Chore, ChoreAssignment, ChoreRotationMember, HouseholdMembership
+from chores.services.notifications import generate_overdue_alerts
 from chores.services.recurrence import calculate_next_due_date
 
 
@@ -88,7 +89,17 @@ def mark_overdue_assignments(reference_date=None):
     if isinstance(reference_date, datetime) or not isinstance(reference_date, date):
         raise TypeError('reference_date must be a datetime.date, not a datetime.')
 
-    return ChoreAssignment.objects.filter(
+    newly_overdue = list(ChoreAssignment.objects.select_for_update().filter(
         status=ChoreAssignment.Status.PENDING,
         due_date__lt=reference_date,
+    ).select_related('chore__household'))
+    if not newly_overdue:
+        return 0
+
+    updated_count = ChoreAssignment.objects.filter(
+        pk__in=[assignment.pk for assignment in newly_overdue],
+        status=ChoreAssignment.Status.PENDING,
     ).update(status=ChoreAssignment.Status.OVERDUE)
+    if updated_count:
+        generate_overdue_alerts(newly_overdue)
+    return updated_count

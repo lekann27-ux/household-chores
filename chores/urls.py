@@ -17,4 +17,6 @@ urlpatterns = [
     path('chores/<int:chore_id>/delete/', views.chore_delete_view, name='chore_delete'),
     path('assignments/<int:assignment_id>/complete/', views.complete_assignment_view, name='complete_assignment'),
     path('history/', views.chore_history_view, name='chore_history'),
+    path('notifications/', views.notification_list_view, name='notification_list'),
+    path('notifications/<int:notification_id>/read/', views.mark_notification_read_view, name='mark_notification_read'),
 ]

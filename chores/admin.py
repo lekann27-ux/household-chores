@@ -1,5 +1,12 @@
 from django.contrib import admin
-from .models import Chore, ChoreAssignment, ChoreRotationMember, Household, HouseholdMembership
+from .models import (
+    Chore,
+    ChoreAssignment,
+    ChoreRotationMember,
+    Household,
+    HouseholdMembership,
+    Notification,
+)
 
 
 @admin.register(Household)
@@ -36,3 +43,11 @@ class ChoreAssignmentAdmin(admin.ModelAdmin):
     list_display = ('chore', 'assigned_to', 'due_date', 'status')
     list_filter = ('status', 'due_date', 'chore__household')
     search_fields = ('chore__title', 'assigned_to__user__username')
+
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ('recipient', 'household', 'notification_type', 'is_read', 'created_at')
+    list_filter = ('notification_type', 'is_read', 'household')
+    search_fields = ('recipient__username', 'household__name', 'message')
+    readonly_fields = ('created_at',)
