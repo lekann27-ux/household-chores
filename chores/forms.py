@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth.models import User
 
-from .models import Household
+from .models import Chore, Household
 
 
 class RegisterForm(UserCreationForm):
@@ -111,3 +111,39 @@ class HouseholdJoinForm(forms.Form):
             raise forms.ValidationError("Invalid join code. Please check with your household administrator.")
         return code
 
+
+class ChoreForm(forms.ModelForm):
+    class Meta:
+        model = Chore
+        fields = ('title', 'description', 'frequency_type', 'frequency_interval', 'is_active')
+        widgets = {
+            'title': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'e.g. Clean the kitchen',
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-input',
+                'rows': 4,
+                'placeholder': 'Instructions or notes (optional)',
+            }),
+            'frequency_type': forms.Select(attrs={'class': 'form-input'}),
+            'frequency_interval': forms.NumberInput(attrs={
+                'class': 'form-input',
+                'min': 1,
+            }),
+            'is_active': forms.CheckboxInput(),
+        }
+        labels = {
+            'frequency_type': 'Frequency',
+            'frequency_interval': 'Interval',
+            'is_active': 'Active',
+        }
+        help_texts = {
+            'frequency_interval': 'How many days, weeks, or months between occurrences.',
+        }
+
+    def clean_frequency_interval(self):
+        interval = self.cleaned_data['frequency_interval']
+        if interval < 1:
+            raise forms.ValidationError('The interval must be at least 1.')
+        return interval

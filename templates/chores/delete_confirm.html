@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+
+{% block title %}Delete {{ chore.title }} | {{ household.name }}{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+    <div class="auth-card" style="border-top:4px solid var(--color-danger);">
+        <div class="auth-header">
+            <h1 class="auth-title" style="color:var(--text-danger);">Delete Chore</h1>
+            <p class="auth-subtitle">Are you sure you want to delete <strong>{{ chore.title }}</strong> from {{ household.name }}?</p>
+        </div>
+        <p style="margin-bottom:1.5rem; color:var(--text-secondary);">Its rotation members will be deleted with it.</p>
+        <form method="post" id="delete-chore-form">
+            {% csrf_token %}
+            <div style="display:flex; gap:1rem; justify-content:flex-end;">
+                <a href="{% url 'chore_list' %}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-logout" id="btn-confirm-delete-chore">Confirm Delete</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

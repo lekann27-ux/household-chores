@@ -1,4 +1,6 @@
 import secrets
+from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
 from django.contrib.auth.models import User
 from django.db import models
 
@@ -87,3 +89,89 @@ class HouseholdMembership(models.Model):
     def __str__(self):
         role = "Admin" if self.is_admin else "Member"
         return f"{self.user.username} - {self.household.name} ({role})"
+
+
+class Chore(models.Model):
+    """A household chore definition and its recurrence configuration."""
+
+    class FrequencyType(models.TextChoices):
+        DAILY = 'DAILY', 'Daily'
+        INTERVAL_DAYS = 'INTERVAL_DAYS', 'Every X days'
+        WEEKLY = 'WEEKLY', 'Weekly'
+        MONTHLY = 'MONTHLY', 'Monthly'
+
+    household = models.ForeignKey(
+        Household,
+        on_delete=models.CASCADE,
+        related_name='chores',
+    )
+    title = models.CharField(max_length=150)
+    description = models.TextField(blank=True)
+    frequency_type = models.CharField(
+        max_length=20,
+        choices=FrequencyType.choices,
+        default=FrequencyType.DAILY,
+    )
+    frequency_interval = models.PositiveIntegerField(
+        default=1,
+        validators=[MinValueValidator(1)],
+        help_text='Number of days or weeks between occurrences; monthly uses months.',
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['title', 'id']
+
+    def clean(self):
+        super().clean()
+        if self.frequency_type and self.frequency_type not in self.FrequencyType.values:
+            raise ValidationError({'frequency_type': 'Select a valid recurrence frequency.'})
+        if self.frequency_interval is not None and self.frequency_interval < 1:
+            raise ValidationError({'frequency_interval': 'The interval must be at least 1.'})
+
+    def __str__(self):
+        return self.title
+
+
+class ChoreRotationMember(models.Model):
+    """An ordered household member slot in a chore's future rotation."""
+
+    chore = models.ForeignKey(
+        Chore,
+        on_delete=models.CASCADE,
+        related_name='rotation_members',
+    )
+    membership = models.ForeignKey(
+        HouseholdMembership,
+        on_delete=models.CASCADE,
+        related_name='chore_rotations',
+    )
+    sequence_order = models.PositiveIntegerField()
+
+    class Meta:
+        ordering = ['sequence_order', 'id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['chore', 'membership'],
+                name='unique_chore_rotation_member',
+            ),
+            models.UniqueConstraint(
+                fields=['chore', 'sequence_order'],
+                name='unique_chore_rotation_order',
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if (
+            self.chore_id
+            and self.membership_id
+            and self.chore.household_id != self.membership.household_id
+        ):
+            raise ValidationError({
+                'membership': 'Rotation members must belong to the chore household.'
+            })
+
+    def __str__(self):
+        return f'{self.chore}: {self.membership.user} ({self.sequence_order})'

@@ -42,6 +42,9 @@
                                     {{ active_household.name }}
                                 </a>
                             </li>
+                            <li>
+                                <a href="{% url 'chore_list' %}" class="nav-link" id="nav-chores">Chores</a>
+                            </li>
                         {% else %}
                             <li>
                                 <a href="{% url 'household_create' %}" class="nav-link" id="nav-create-household">Create Household</a>

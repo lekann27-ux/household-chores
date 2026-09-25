@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block title %}Chores | {{ household.name }}{% endblock %}
+
+{% block content %}
+<section class="dashboard-overview-card">
+    <div class="overview-header" style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
+        <div>
+            <h1 class="overview-title">{{ household.name }} chores</h1>
+            <p style="color:var(--text-secondary);">Chore schedules for your household.</p>
+        </div>
+        {% if is_admin %}
+            <a class="btn btn-primary" href="{% url 'chore_create' %}" id="btn-create-chore">Add Chore</a>
+        {% endif %}
+    </div>
+
+    {% if chores %}
+        <div style="overflow-x:auto; background:white; border:1px solid var(--border-color); border-radius:var(--radius-md);">
+            <table style="width:100%; border-collapse:collapse; text-align:left; font-size:.925rem;" id="table-chores">
+                <thead>
+                    <tr style="background:var(--bg-subtle); border-bottom:1px solid var(--border-color);">
+                        <th style="padding:.85rem 1.25rem;">Chore</th>
+                        <th style="padding:.85rem 1rem;">Schedule</th>
+                        <th style="padding:.85rem 1rem;">Status</th>
+                        {% if is_admin %}<th style="padding:.85rem 1.25rem; text-align:right;">Actions</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for chore in chores %}
+                        <tr style="border-bottom:1px solid var(--border-color);" id="chore-row-{{ chore.id }}">
+                            <td style="padding:1rem 1.25rem;">
+                                <strong>{{ chore.title }}</strong>
+                                {% if chore.description %}<div style="color:var(--text-secondary); margin-top:.25rem;">{{ chore.description|linebreaksbr }}</div>{% endif %}
+                            </td>
+                            <td style="padding:1rem;">{{ chore.get_frequency_type_display }}{% if chore.frequency_type != 'DAILY' or chore.frequency_interval != 1 %} ({{ chore.frequency_interval }}){% endif %}</td>
+                            <td style="padding:1rem;">{% if chore.is_active %}Active{% else %}Inactive{% endif %}</td>
+                            {% if is_admin %}
+                                <td style="padding:1rem 1.25rem; text-align:right; white-space:nowrap;">
+                                    <a href="{% url 'chore_update' chore.id %}" class="btn btn-secondary" id="btn-edit-chore-{{ chore.id }}">Edit</a>
+                                    <a href="{% url 'chore_delete' chore.id %}" class="btn btn-logout" id="btn-delete-chore-{{ chore.id }}">Delete</a>
+                                </td>
+                            {% endif %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state" id="empty-chores">
+            <h2>No chores yet</h2>
+            <p>{% if is_admin %}Add a chore to define your household's schedule.{% else %}Your household administrator has not added any chores yet.{% endif %}</p>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

@@ -6,8 +6,8 @@ from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 
-from .forms import HouseholdCreationForm, HouseholdJoinForm, LoginForm, RegisterForm
-from .models import Household, HouseholdMembership
+from .forms import ChoreForm, HouseholdCreationForm, HouseholdJoinForm, LoginForm, RegisterForm
+from .models import Chore, Household, HouseholdMembership
 
 
 def home_view(request):
@@ -183,4 +183,109 @@ def household_remove_member_view(request, membership_id):
     return render(request, 'household/remove_confirm.html', {
         'household': admin_membership.household,
         'target_membership': target_membership,
+    })
+
+
+def _chore_membership_or_redirect(request):
+    membership = request.user.household_memberships.select_related('household').first()
+    if membership is None:
+        messages.info(request, 'Join or create a household before managing chores.')
+        return None, redirect('household_create')
+    return membership, None
+
+
+def _is_household_admin(request, membership):
+    return membership.household.admin_id == request.user.id
+
+
+@login_required
+def chore_list_view(request):
+    """List chores for the current user's household."""
+    membership, response = _chore_membership_or_redirect(request)
+    if response:
+        return response
+
+    household = membership.household
+    return render(request, 'chores/list.html', {
+        'household': household,
+        'chores': Chore.objects.filter(household=household),
+        'is_admin': _is_household_admin(request, membership),
+    })
+
+
+@login_required
+def chore_create_view(request):
+    """Create a chore within the current household (admin only)."""
+    membership, response = _chore_membership_or_redirect(request)
+    if response:
+        return response
+    if not _is_household_admin(request, membership):
+        return HttpResponseForbidden('Only household administrators can manage chores.')
+
+    if request.method == 'POST':
+        form = ChoreForm(request.POST)
+        if form.is_valid():
+            chore = form.save(commit=False)
+            chore.household = membership.household
+            chore.save()
+            messages.success(request, f'Chore "{chore.title}" was created.')
+            return redirect('chore_list')
+    else:
+        form = ChoreForm()
+
+    return render(request, 'chores/form.html', {
+        'form': form,
+        'household': membership.household,
+        'page_title': 'Create Chore',
+        'submit_label': 'Create Chore',
+    })
+
+
+@login_required
+def chore_update_view(request, chore_id):
+    """Edit a chore only when it belongs to the admin's household."""
+    membership, response = _chore_membership_or_redirect(request)
+    if response:
+        return response
+    if not _is_household_admin(request, membership):
+        return HttpResponseForbidden('Only household administrators can manage chores.')
+
+    chore = get_object_or_404(Chore, pk=chore_id, household=membership.household)
+    if request.method == 'POST':
+        form = ChoreForm(request.POST, instance=chore)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Chore "{chore.title}" was updated.')
+            return redirect('chore_list')
+    else:
+        form = ChoreForm(instance=chore)
+
+    return render(request, 'chores/form.html', {
+        'form': form,
+        'household': membership.household,
+        'chore': chore,
+        'page_title': 'Edit Chore',
+        'submit_label': 'Save Changes',
+    })
+
+
+@login_required
+def chore_delete_view(request, chore_id):
+    """Confirm and delete a chore owned by the current household (admin only)."""
+    membership, response = _chore_membership_or_redirect(request)
+    if response:
+        return response
+    if not _is_household_admin(request, membership):
+        return HttpResponseForbidden('Only household administrators can manage chores.')
+
+    chore = get_object_or_404(Chore, pk=chore_id, household=membership.household)
+    if request.method == 'POST':
+        title = chore.title
+        chore.delete()
+        messages.success(request, f'Chore "{title}" was deleted.')
+        return redirect('chore_list')
+
+    return render(request, 'chores/delete_confirm.html', {
+        'chore': chore,
+        'household': membership.household,
     })

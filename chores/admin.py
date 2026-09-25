@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Household, HouseholdMembership
+from .models import Chore, ChoreRotationMember, Household, HouseholdMembership
 
 
 @admin.register(Household)
@@ -14,3 +14,18 @@ class HouseholdMembershipAdmin(admin.ModelAdmin):
     list_display = ('user', 'household', 'is_admin', 'joined_at')
     list_filter = ('is_admin', 'household')
     search_fields = ('user__username', 'user__email', 'household__name')
+
+
+@admin.register(Chore)
+class ChoreAdmin(admin.ModelAdmin):
+    list_display = ('title', 'household', 'frequency_type', 'frequency_interval', 'is_active', 'created_at')
+    list_filter = ('frequency_type', 'is_active', 'household')
+    search_fields = ('title', 'description', 'household__name')
+    readonly_fields = ('created_at',)
+
+
+@admin.register(ChoreRotationMember)
+class ChoreRotationMemberAdmin(admin.ModelAdmin):
+    list_display = ('chore', 'membership', 'sequence_order')
+    list_filter = ('chore__household',)
+    search_fields = ('chore__title', 'membership__user__username')
