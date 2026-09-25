@@ -36,6 +36,20 @@
                         <li>
                             <a href="{% url 'home' %}" class="nav-link" id="nav-home">Home</a>
                         </li>
+                        {% if active_household %}
+                            <li>
+                                <a href="{% url 'household_members' %}" class="nav-link" id="nav-household">
+                                    {{ active_household.name }}
+                                </a>
+                            </li>
+                        {% else %}
+                            <li>
+                                <a href="{% url 'household_create' %}" class="nav-link" id="nav-create-household">Create Household</a>
+                            </li>
+                            <li>
+                                <a href="{% url 'household_join' %}" class="nav-link" id="nav-join-household">Join</a>
+                            </li>
+                        {% endif %}
                         <li>
                             <a href="{% url 'dashboard' %}" class="nav-link" id="nav-dashboard">Dashboard</a>
                         </li>

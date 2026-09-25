@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block title %}Join Household | Shared Household Chores{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1 class="auth-title">Join a Household</h1>
+            <p class="auth-subtitle">Enter the invite code provided by your household administrator.</p>
+        </div>
+
+        <form method="post" action="{% url 'household_join' %}" novalidate id="household-join-form">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger" style="margin-bottom: 1.25rem;">
+                    <div>{{ form.non_field_errors }}</div>
+                </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label for="{{ form.join_code.id_for_label }}" class="form-label">Household Invite Code *</label>
+                {{ form.join_code }}
+                {% if form.join_code.help_text %}
+                    <div class="form-help">{{ form.join_code.help_text }}</div>
+                {% endif %}
+                {% if form.join_code.errors %}
+                    <div class="form-error">{{ form.join_code.errors|first }}</div>
+                {% endif %}
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block" id="btn-submit-join-household" style="margin-top: 1rem;">
+                Join Household
+            </button>
+        </form>
+
+        <div class="auth-footer">
+            <p>Want to start a new household instead? <a href="{% url 'household_create' %}" id="link-to-create">Create a household</a></p>
+        </div>
+    </div>
+</div>
+{% endblock %}

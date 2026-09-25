@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}Remove Member | {{ household.name }}{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+    <div class="auth-card" style="border-top: 4px solid var(--color-danger);">
+        <div class="auth-header">
+            <h1 class="auth-title" style="color: var(--text-danger);">Remove Member</h1>
+            <p class="auth-subtitle">Confirm removal of housemate from {{ household.name }}.</p>
+        </div>
+
+        <div style="background: var(--bg-danger); border: 1px solid var(--border-danger); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.75rem;">
+            <p style="color: var(--text-danger); font-weight: 600; font-size: 0.95rem;">
+                Are you sure you want to remove <strong>{{ target_membership.user.get_full_name|default:target_membership.user.username }}</strong> (@{{ target_membership.user.username }})?
+            </p>
+            <p style="color: var(--text-danger); font-size: 0.85rem; margin-top: 0.5rem; opacity: 0.9;">
+                This member will immediately lose access to this household.
+            </p>
+        </div>
+
+        <form method="post" action="{% url 'household_remove_member' target_membership.id %}" id="remove-member-form">
+            {% csrf_token %}
+
+            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                <a href="{% url 'household_members' %}" class="btn btn-secondary" id="btn-cancel-remove">
+                    Cancel
+                </a>
+                <button type="submit" class="btn" style="background: var(--color-danger); color: white;" id="btn-confirm-remove">
+                    Confirm Removal
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

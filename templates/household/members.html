@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ household.name }} - Members | Shared Household Chores{% endblock %}
+
+{% block content %}
+<div class="dashboard-overview-card">
+    <div class="overview-header">
+        <div>
+            <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                <h1 class="overview-title">{{ household.name }}</h1>
+                {% if is_admin %}
+                    <span class="status-badge badge-info" id="badge-admin-status">Household Administrator</span>
+                {% else %}
+                    <span class="status-badge badge-success" id="badge-member-status">Member</span>
+                {% endif %}
+            </div>
+            <p style="color: var(--text-secondary); font-size: 0.925rem; margin-top: 0.35rem;">
+                Created {{ household.created_at|date:"F j, Y" }} &bull; Admin: <strong>{{ household.admin.username }}</strong>
+            </p>
+        </div>
+    </div>
+
+    <!-- Join Code Banner -->
+    <div style="background: linear-gradient(135deg, #eef2ff 0%, #ecfeff 100%); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem 1.5rem; margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--primary);">
+                Household Join Code
+            </div>
+            <div style="font-family: monospace; font-size: 1.6rem; font-weight: 800; letter-spacing: 0.15em; color: var(--text-primary); margin-top: 0.2rem;" id="display-join-code">
+                {{ household.join_code }}
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                Share this code with housemates so they can register and join this household.
+            </p>
+        </div>
+        <div>
+            <button type="button" class="btn btn-secondary" id="btn-copy-code" onclick="copyJoinCode('{{ household.join_code }}')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 0.3rem;">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                Copy Code
+            </button>
+        </div>
+    </div>
+
+    <!-- Member Directory Header -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+        <h2 style="font-family: var(--font-heading); font-size: 1.35rem; font-weight: 700;">
+            Housemates ({{ members|length }})
+        </h2>
+    </div>
+
+    <!-- Member Table -->
+    <div style="overflow-x: auto; background: white; border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.925rem;" id="table-members">
+            <thead>
+                <tr style="background: var(--bg-subtle); border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <th style="padding: 0.85rem 1.25rem;">Member</th>
+                    <th style="padding: 0.85rem 1rem;">Email</th>
+                    <th style="padding: 0.85rem 1rem;">Role</th>
+                    <th style="padding: 0.85rem 1rem;">Joined Date</th>
+                    {% if is_admin %}
+                        <th style="padding: 0.85rem 1.25rem; text-align: right;">Action</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in members %}
+                <tr style="border-bottom: 1px solid var(--border-color);" id="member-row-{{ m.user.username }}">
+                    <td style="padding: 1rem 1.25rem;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <div class="user-avatar" style="width: 32px; height: 32px; font-size: 0.85rem;">
+                                {{ m.user.username|make_list|first|upper }}
+                            </div>
+                            <div>
+                                <div style="font-weight: 600; color: var(--text-primary);">
+                                    {{ m.user.get_full_name|default:m.user.username }}
+                                    {% if m.user == user %}
+                                        <span style="font-size: 0.75rem; color: var(--primary); font-weight: 700; margin-left: 0.25rem;">(You)</span>
+                                    {% endif %}
+                                </div>
+                                <div style="font-size: 0.8rem; color: var(--text-muted);">
+                                    @{{ m.user.username }}
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="padding: 1rem; color: var(--text-secondary);">
+                        {{ m.user.email }}
+                    </td>
+                    <td style="padding: 1rem;">
+                        {% if m.is_admin %}
+                            <span class="status-badge badge-info" style="font-size: 0.75rem; padding: 0.2rem 0.6rem;">Admin</span>
+                        {% else %}
+                            <span class="status-badge" style="background: var(--bg-subtle); color: var(--text-secondary); font-size: 0.75rem; padding: 0.2rem 0.6rem;">Member</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 1rem; color: var(--text-secondary); font-size: 0.875rem;">
+                        {{ m.joined_at|date:"M j, Y" }}
+                    </td>
+                    {% if is_admin %}
+                        <td style="padding: 1rem 1.25rem; text-align: right;">
+                            {% if m.user != user and not m.is_admin %}
+                                <a href="{% url 'household_remove_member' m.id %}" class="btn btn-logout" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;" id="btn-remove-{{ m.user.username }}">
+                                    Remove
+                                </a>
+                            {% endif %}
+                        </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function copyJoinCode(code) {
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(code).then(() => {
+            const btn = document.getElementById('btn-copy-code');
+            const originalHTML = btn.innerHTML;
+            btn.innerText = 'Copied!';
+            setTimeout(() => { btn.innerHTML = originalHTML; }, 2000);
+        });
+    }
+}
+</script>
+{% endblock %}

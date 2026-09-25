@@ -2,6 +2,8 @@ from django import forms
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth.models import User
 
+from .models import Household
+
 
 class RegisterForm(UserCreationForm):
     email = forms.EmailField(
@@ -61,3 +63,51 @@ class LoginForm(AuthenticationForm):
             'class': 'form-input',
             'autocomplete': 'current-password',
         })
+
+
+class HouseholdCreationForm(forms.ModelForm):
+    class Meta:
+        model = Household
+        fields = ('name',)
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'placeholder': 'e.g. Elm Street Flat, Apartment 4B',
+                'class': 'form-input',
+                'autocomplete': 'off',
+            })
+        }
+        labels = {
+            'name': 'Household Name',
+        }
+        help_texts = {
+            'name': 'A friendly name to identify your shared home.',
+        }
+
+    def clean_name(self):
+        name = self.cleaned_data.get('name', '').strip()
+        if not name:
+            raise forms.ValidationError("Household name cannot be blank.")
+        return name
+
+
+class HouseholdJoinForm(forms.Form):
+    join_code = forms.CharField(
+        max_length=12,
+        label="Household Join Code",
+        widget=forms.TextInput(attrs={
+            'placeholder': 'Enter invite code',
+            'class': 'form-input',
+            'autocomplete': 'off',
+            'style': 'text-transform: uppercase; font-family: monospace; letter-spacing: 0.1em; font-weight: 600;',
+        }),
+        help_text="Ask your household administrator for the invite code."
+    )
+
+    def clean_join_code(self):
+        code = self.cleaned_data.get('join_code', '').strip().upper()
+        if not code:
+            raise forms.ValidationError("Please provide a join code.")
+        if not Household.objects.filter(join_code=code).exists():
+            raise forms.ValidationError("Invalid join code. Please check with your household administrator.")
+        return code
+
