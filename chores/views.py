@@ -1,14 +1,17 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, LogoutView
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
 
 from .forms import ChoreForm, HouseholdCreationForm, HouseholdJoinForm, LoginForm, RegisterForm
-from .models import Chore, Household, HouseholdMembership
+from .models import Chore, ChoreAssignment, Household, HouseholdMembership
+from .services.assignments import complete_assignment
+from .services.members import remove_member_from_household
 from .services.rotation import (
     enroll_member_in_active_chore_rotations,
     initialize_chore_rotation,
@@ -179,7 +182,7 @@ def household_remove_member_view(request, membership_id):
     if request.method == 'POST':
         removed_username = target_membership.user.username
         with transaction.atomic():
-            target_membership.delete()
+            remove_member_from_household(target_membership, request.user)
         messages.success(
             request,
             f"{removed_username} was removed from {admin_membership.household.name}."
@@ -297,3 +300,30 @@ def chore_delete_view(request, chore_id):
         'chore': chore,
         'household': membership.household,
     })
+
+
+@login_required
+def complete_assignment_view(request, assignment_id):
+    """Complete a household assignment via POST as its assignee or admin."""
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    membership = request.user.household_memberships.select_related('household').first()
+    if membership is None:
+        return HttpResponseForbidden('You must belong to the chore household to complete it.')
+
+    assignment = get_object_or_404(
+        ChoreAssignment,
+        pk=assignment_id,
+        chore__household=membership.household,
+    )
+    try:
+        complete_assignment(assignment.pk, membership)
+    except PermissionDenied as exc:
+        return HttpResponseForbidden(str(exc))
+    except ValidationError as exc:
+        messages.error(request, exc.messages[0])
+        return redirect('chore_list')
+
+    messages.success(request, f'"{assignment.chore.title}" was marked complete.')
+    return redirect('chore_list')
