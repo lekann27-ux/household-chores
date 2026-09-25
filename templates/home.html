@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    {% if user.is_authenticated %}Dashboard | Shared Household Chores{% else %}Shared Household Chores - Fair & Automated Household Chore Rotations{% endif %}
+{% endblock %}
+
+{% block content %}
+{% if user.is_authenticated %}
+    <!-- Authenticated User Landing View -->
+    <div class="dashboard-overview-card">
+        <div class="overview-header">
+            <div>
+                <h1 class="overview-title">Welcome back, {{ user.first_name|default:user.username }}!</h1>
+                <p style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.25rem;">
+                    Account: <strong>{{ user.username }}</strong> &bull; Email: <strong>{{ user.email }}</strong>
+                </p>
+            </div>
+            <div>
+                <span class="status-badge badge-success">
+                    <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:currentColor;"></span>
+                    Active Account
+                </span>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-box">
+                <div class="stat-box-title">Household Status</div>
+                <div style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary); margin-top: 0.25rem;">
+                    Not Connected
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                    Join or create a household to get started with chore rotations.
+                </p>
+            </div>
+
+            <div class="stat-box">
+                <div class="stat-box-title">Assigned Chores</div>
+                <div class="stat-box-value">0</div>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                    No pending tasks due today.
+                </p>
+            </div>
+
+            <div class="stat-box">
+                <div class="stat-box-title">Notifications</div>
+                <div class="stat-box-value">0</div>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                    All caught up.
+                </p>
+            </div>
+        </div>
+
+        <div style="margin-top: 2rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+            <a href="{% url 'dashboard' %}" class="btn btn-primary" id="btn-view-dashboard">Go to Chores Dashboard</a>
+            <form method="post" action="{% url 'logout' %}" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary">Sign Out</button>
+            </form>
+        </div>
+    </div>
+
+{% else %}
+    <!-- Public Guest Hero View -->
+    <section class="hero-section">
+        <div class="hero-badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+            </svg>
+            Automated Chore Tracking
+        </div>
+
+        <h1 class="hero-title">
+            Never argue about <span class="gradient-text">household chores</span> again.
+        </h1>
+
+        <p class="hero-subtitle">
+            Shared Household Chores eliminates confusion and friction in shared flats. Automated turn-based rotations, sticky overdue tracking, and real-time reminders keep everyone accountable.
+        </p>
+
+        <div class="hero-actions">
+            <a href="{% url 'register' %}" class="btn btn-primary" id="hero-cta-register" style="padding: 0.75rem 1.75rem; font-size: 1rem;">
+                Get Started Free
+            </a>
+            <a href="{% url 'login' %}" class="btn btn-secondary" id="hero-cta-login" style="padding: 0.75rem 1.75rem; font-size: 1rem;">
+                Sign In
+            </a>
+        </div>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon-wrapper feature-icon-indigo">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+                    </svg>
+                </div>
+                <h2 class="feature-title">Automated Turn-Based Rotation</h2>
+                <p class="feature-description">
+                    Chores automatically queue housemates in sequence. When marked complete, the duty immediately advances to the next member.
+                </p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon-wrapper feature-icon-emerald">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                </div>
+                <h2 class="feature-title">Sticky Overdue Policy</h2>
+                <p class="feature-description">
+                    Delinquent chores do not roll over or skip people. A chore stays with the delinquent assignee until done, keeping things fair.
+                </p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon-wrapper feature-icon-amber">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                </div>
+                <h2 class="feature-title">Simple Join Codes</h2>
+                <p class="feature-description">
+                    Create a household in seconds and invite flatmates with a unique code. New housemates are automatically enrolled in all chore rotations.
+                </p>
+            </div>
+        </div>
+    </section>
+{% endif %}
+{% endblock %}
